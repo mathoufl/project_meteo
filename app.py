@@ -37,7 +37,6 @@ test_ind = int(0.8*data.shape[0])
 ind = 0
 
 
-weather_model.inspect_model()
 # we train the model with the data retreived from
 weather_model.train()
 while ind <= test_ind :

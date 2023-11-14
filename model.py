@@ -32,9 +32,10 @@ class EmissionModel(torch.nn.Module):
         self.unnormalized_emission_matrix = torch.nn.Parameter(torch.randn(N,M)) 
 
 
-    def forward (self, obervation_raw):
+    def forward (self, observation_raw):
+        print(observation_raw)
         log_emission_matrix = torch.nn.functional.log_softmax(self.unnormalized_emission_matrix, dim=1)
-        out = log_emission_matrix[:, obervation_raw].transpose(0,1)
+        out = log_emission_matrix[observation_raw, :].transpose(0,1)
         return out
 
 
@@ -87,7 +88,10 @@ class Weather_forcast (torch.nn.Module) :
         log_alpha = torch.zeros(batch_size, self.M, self.N)
         if self.is_cuda: log_alpha = log_alpha.cuda()
 
-        log_alpha[:, 0, :] = self.emission_model(formated_inputs[0]) + log_state_priors
+        print("issou")
+        print(formated_inputs)
+        print(formated_inputs[0, :])
+        log_alpha[:, 0, :] = self.emission_model(formated_inputs[0, :]) + log_state_priors
         for t in range(1, self.M):
             log_alpha[:, t, :] = self.emission_model(formated_inputs[:,t]) + self.transition_model(log_alpha[:, t-1, :])
 
