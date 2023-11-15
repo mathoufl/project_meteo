@@ -26,8 +26,8 @@ format_data()
 
 ### setting env variables
 obs_number = data.shape[1] - 3
-raw_number = data.shape[0]
-weather_model = model.Weather_forcast(obs_number, raw_number)
+state_number = len(set(data['Summary'].values))
+weather_model = model.Weather_forcast(obs_number, state_number)
 
 lr = 1 # le faire jouer plus tard
 optimizer = torch.optim.Adam(weather_model.parameters(), lr)

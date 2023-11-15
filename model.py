@@ -5,38 +5,19 @@ import random as rd
 import util
 
 
-class TransitionModel(torch.nn.Module):
-    N: int
-    unnormalized_transition_matrix: torch.nn.Parameter
 
-    def __init__(self, N):
-        super(TransitionModel, self).__init__()
-        self.N = N
-        self.unnormalized_transition_matrix = torch.nn.Parameter(torch.randn(N,N))
+def forward_trans (self, log_alpha) :
+    log_transition_matrix = torch.nn.functional.log_softmax(self.unnormalized_transition_matrix, dim=0)
+    out = util.log_domain_matmul(log_transition_matrix, log_alpha.transpose(0,1)).transpose(0,1)
+    return out
 
 
-    def forward (self, log_alpha) :
-        log_transition_matrix = torch.nn.functional.log_softmax(self.unnormalized_transition_matrix, dim=0)
-        out = util.log_domain_matmul(log_transition_matrix, log_alpha.transpose(0,1)).transpose(0,1)
-        return out
 
-
-class EmissionModel(torch.nn.Module):
-    N : int
-    unnormalized_emission_matrix : torch.nn.Parameter
-
-    def __init__(self, N, M):
-        super(EmissionModel, self).__init__()
-        self.N = N
-        self.M = M
-        self.unnormalized_emission_matrix = torch.nn.Parameter(torch.randn(N,M)) 
-
-
-    def forward (self, observation_raw):
-        print(observation_raw)
-        log_emission_matrix = torch.nn.functional.log_softmax(self.unnormalized_emission_matrix, dim=1)
-        out = log_emission_matrix[observation_raw, :].transpose(0,1)
-        return out
+def forward_em (self, hidden_state, observation_raw):
+    print(observation_raw)
+    log_emission_matrix = torch.nn.functional.log_softmax(self.unnormalized_emission_matrix, dim=1)
+    out = log_emission_matrix[observation_raw, :].transpose(0,1)
+    return out
 
 
 class Weather_forcast (torch.nn.Module) :
@@ -51,9 +32,8 @@ class Weather_forcast (torch.nn.Module) :
     """
         Parametres to train
     """
-    transition_model : TransitionModel
-    emission_model : EmissionModel
-    unnormalized_state_priors : torch.nn.Parameter
+    transition_model : torch.nn.Parameter
+    emission_model : torch.nn.Parameter
 
 
     """
@@ -62,14 +42,13 @@ class Weather_forcast (torch.nn.Module) :
     batch : torch.tensor
 
 
-    def __init__(self, obs_number: int, raw_number: int) :
-        self.N = obs_number
-        self.M = raw_number
+    def __init__(self, feature_number: int, state_number: int) :
+        self.N = feature_number
+        self.M = state_number
         super(Weather_forcast, self).__init__()
 
-        self.transition_model = TransitionModel(self.N)
-        self.emission_model = EmissionModel(self.N,self.M)
-        self.unnormalized_state_priors = torch.nn.Parameter(torch.randn(self.N))
+        self.transition_model = torch.nn.Parameter(torch.randn(self.N,self.N))
+        self.emission_model = torch.nn.Parameter(torch.randn(self.N,self.M)) 
 
         self.is_cuda = torch.cuda.is_available()
         if self.is_cuda: self.cuda()
@@ -85,13 +64,10 @@ class Weather_forcast (torch.nn.Module) :
         formated_inputs = util.extract_data(inputs)
         batch_size = formated_inputs.shape[0]
         log_state_priors = torch.nn.functional.log_softmax(self.unnormalized_state_priors, dim=0)
-        log_alpha = torch.zeros(batch_size, self.M, self.N)
+        log_alpha = torch.zeros(batch_size, self.M)
         if self.is_cuda: log_alpha = log_alpha.cuda()
 
-        print("issou")
-        print(formated_inputs)
-        print(formated_inputs[0, :])
-        log_alpha[:, 0, :] = self.emission_model(formated_inputs[0, :]) + log_state_priors
+        log_alpha[0, :] = self.emission_model(formated_inputs[0, :]) + log_state_priors
         for t in range(1, self.M):
             log_alpha[:, t, :] = self.emission_model(formated_inputs[:,t]) + self.transition_model(log_alpha[:, t-1, :])
 
